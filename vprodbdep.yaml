@@ -1,40 +1,29 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: vprodb
+  name: vproapp
   labels:
-    app: vprodb
+    app: vproapp
 spec:
+  replicas: 1
   selector:
     matchLabels:
-      app: vprodb
-  replicas: 1
+      app: vproapp
   template:
     metadata:
       labels:
-        app: vprodb
+        app: vproapp
     spec:
       containers:
-        - name: vprodb
-          image: vprofile/vprofiledb:V1
-          args:
-            - "--ignore-db-dir=lost+found"
-          volumeMounts:
-            - mountPath: /var/lib/mysql
-              name: vpro-db-data
+        - name: vproapp
+          image: vprofile/vprofileapp
           ports:
-            - name: vprodb-port
-              containerPort: 3306
-          env:
-            - name: MYSQL_ROOT_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: app-secret
-                  key: db-pass
-      nodeSelector:
-        zone: us-east-1a
-      volumes:
-        - name: vpro-db-data
-          awsElasticBlockStore:
-            volumeID: vol-0cad61562c5e9b000
-            fsType: ext4
+            - name: vproapp-port
+              containerPort: 8080
+      initContainers:
+        - name: init-mydb
+          image: busybox
+          command: ['sh', '-c', 'until nslookup vprodb.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for mydb; sleep 2; done;']
+        - name: init-memcache
+          image: busybox
+          command: ['sh', '-c', 'until nslookup vprocache01.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for mydb; sleep 2; done;']
